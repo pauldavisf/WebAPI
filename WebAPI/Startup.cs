@@ -73,7 +73,11 @@ namespace WebAPI
 
             app.UseAuthentication();
 
-            app.UseMvc();
+            app.UseMvc(opt =>
+            {
+                opt.MapRoute("Default",
+                    "{controller=Todo}/{action=Get}");
+            });
         }
     }
 }

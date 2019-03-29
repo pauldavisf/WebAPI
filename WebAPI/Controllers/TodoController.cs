@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebAPI.Models;
+using WebAPI.Helpers;
 
 namespace WebAPI.Controllers
 {
@@ -19,12 +18,6 @@ namespace WebAPI.Controllers
         public TodoController(TodoContext context)
         {
             _context = context;
-
-            /*if (context.TodoItems.Count() == 0)
-            {
-                _context.TodoItems.Add(new TodoItem { Name = "Item1" });
-                _context.SaveChanges();
-            }*/
         }
 
         [HttpGet]
@@ -42,14 +35,14 @@ namespace WebAPI.Controllers
         {
             var todoItem = await _context.TodoItems.FindAsync(id);
 
-            if (todoItem.UserName != User.Identity.Name)
-            {
-                return Unauthorized();
-            }
-
             if (todoItem == null)
             {
                 return NotFound();
+            }
+
+            if (!AuthHelper.IsItemAcceessible(todoItem, User))
+            {
+                return Unauthorized();
             }
 
             return todoItem;
@@ -71,14 +64,14 @@ namespace WebAPI.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutTodoItem(long id, TodoItem item)
         {
-            if (item.UserName != User.Identity.Name)
-            {
-                return Unauthorized();
-            }
-
             if (id != item.Id)
             {
                 return BadRequest();
+            }
+
+            if (!AuthHelper.IsItemAcceessible(item, User))
+            {
+                return Unauthorized();
             }
 
             _context.Entry(item).State = EntityState.Modified;
@@ -92,14 +85,14 @@ namespace WebAPI.Controllers
         {
             var todoItem = await _context.TodoItems.FindAsync(id);
 
-            if (todoItem.UserName != User.Identity.Name)
-            {
-                return Unauthorized();
-            }
-
             if (todoItem == null)
             {
                 return NotFound();
+            }
+
+            if (!AuthHelper.IsItemAcceessible(todoItem, User))
+            {
+                return Unauthorized();
             }
 
             _context.TodoItems.Remove(todoItem);
