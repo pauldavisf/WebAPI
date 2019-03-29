@@ -11,9 +11,13 @@ using System.Security.Claims;
 using WebAPI.Models;
 using WebAPI;
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 namespace TokenApp.Controllers
 {
+    [Route("api/[controller]")]
+    [ApiController]
     public class AccountController : Controller
     {
         private readonly UserContext _context;
@@ -36,7 +40,7 @@ namespace TokenApp.Controllers
             }
         }
 
-        [HttpPost("/register")]
+        [HttpPost("register")]
         public async Task<ActionResult<User>> Register()
         {
             var username = Request.Form["username"];
@@ -60,11 +64,73 @@ namespace TokenApp.Controllers
             }
             else
             {
+                await Response.WriteAsync($"User with login {username} already exists in database");
                 return null;
             }
         }
 
-        [HttpPost("/token")]
+        [HttpPut("changePassword")]
+        public async Task<IActionResult> ChangePassword()
+        {
+            var username = Request.Form["username"];
+            var password = Request.Form["password"];
+            var newPassword = Request.Form["newPassword"];
+
+            var userFromDb = _context.Users.FirstOrDefault(x => x.Login == username && x.Password == password);
+
+            if (userFromDb == null)
+            {
+                await Response.WriteAsync("Wrong username/password");
+                return Unauthorized();
+            }
+            else
+            {
+                userFromDb.Password = newPassword;
+                _context.Entry(userFromDb).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+
+                return NoContent();
+            }
+        }
+
+        [HttpGet]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+        {
+            if (User.Identity.Name != "admin")
+            {
+                await Response.WriteAsync("You must be admin");
+                return Unauthorized();
+            }
+
+            return await _context.Users.ToListAsync();
+        }
+
+        [HttpDelete("{username}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteUser(string username)
+        {
+            if (User.Identity.Name != "admin")
+            {
+                await Response.WriteAsync("You must be admin");
+                return Unauthorized();
+            }
+
+            var user = _context.Users.FirstOrDefault(x => x.Login == username);
+
+            if (user == null)
+            {
+                await Response.WriteAsync($"User with login {username} doesn't exist in database");
+                return NotFound();
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpPost("token")]
         public async Task Token()
         {
             var username = Request.Form["username"];
@@ -79,7 +145,7 @@ namespace TokenApp.Controllers
             }
 
             var now = DateTime.UtcNow;
-            // создаем JWT-токен
+
             var jwt = new JwtSecurityToken(
                     issuer: AuthOptions.ISSUER,
                     audience: AuthOptions.AUDIENCE,
@@ -95,7 +161,6 @@ namespace TokenApp.Controllers
                 username = identity.Name
             };
 
-            // сериализация ответа
             Response.ContentType = "application/json";
             await Response.WriteAsync(JsonConvert.SerializeObject(response,
                 new JsonSerializerSettings { Formatting = Formatting.Indented }));
