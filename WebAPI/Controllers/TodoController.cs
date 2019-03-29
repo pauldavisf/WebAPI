@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebAPI.Models;
 using WebAPI.Helpers;
+using Microsoft.AspNetCore.Http;
 
 namespace WebAPI.Controllers
 {
@@ -52,6 +53,14 @@ namespace WebAPI.Controllers
         [Authorize]
         public async Task<ActionResult<TodoItem>> PostTodoItem(TodoItem item)
         {
+            var todoItem = await _context.TodoItems.FindAsync(item.Id);
+
+            if (todoItem != null)
+            {
+                await Response.WriteAsync("The record with this Id already exists");
+                return Conflict();
+            }
+
             item.UserName = User.Identity.Name;
             _context.TodoItems.Add(item);
             await _context.SaveChangesAsync();
